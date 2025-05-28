@@ -1,54 +1,51 @@
-import React, { createContext, useContext, useState } from 'react';
-import { User, AuthState } from '../types/auth';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 
-interface AuthContextType extends AuthState {
-  login: (user: User) => void;
-  logout: () => void;
-  isAdmin: () => boolean;
-  canManageGym: (gymId: string) => boolean;
+export type Role = 'creator' | 'manager' | 'admin';
+
+interface AuthState {
+  user: any | null;
+  role: Role | null;
+  loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthState>({
+  user: null,
+  role: null,
+  loading: true,
+});
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [authState, setAuthState] = useState<AuthState>({
-    user: {
-      id: '1',
-      role: 'admin',
-      name: 'Jayme'
-    },
-    isAuthenticated: true
-  });
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [state, setState] = useState<AuthState>({ user: null, role: null, loading: true });
 
-  const login = (user: User) => {
-    setAuthState({ user, isAuthenticated: true });
-  };
+  useEffect(() => {
+    const getSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-  const logout = () => {
-    setAuthState({ user: null, isAuthenticated: false });
-  };
+      if (session?.user) {
+        const { data } = await supabase
+          .from('gym_members')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .limit(1)
+          .single();
 
-  const isAdmin = () => {
-    return authState.user?.role === 'admin';
-  };
+        setState({
+          user: session.user,
+          role: (data?.role as Role) || 'creator',
+          loading: false,
+        });
+      } else {
+        setState({ user: null, role: null, loading: false });
+      }
+    };
 
-  const canManageGym = (gymId: string) => {
-    if (!authState.user) return false;
-    if (authState.user.role === 'admin') return true;
-    return authState.user.gymId === gymId;
-  };
+    getSession();
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{ ...authState, login, logout, isAdmin, canManageGym }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
 };
+
+export const useAuth = () => useContext(AuthContext);

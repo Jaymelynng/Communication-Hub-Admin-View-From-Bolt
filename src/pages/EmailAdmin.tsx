@@ -2,6 +2,7 @@ import React from 'react';
 import { PageHeader } from '../components/Layout/PageHeader';
 import { EmailCreationForm } from '../components/Emails/EmailCreationForm';
 import { EmailAssignmentList } from '../components/Emails/EmailAssignmentList';
+import { RoleGate } from '../context/RoleGate';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 
